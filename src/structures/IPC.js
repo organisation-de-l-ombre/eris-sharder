@@ -1,73 +1,146 @@
-const EventEmitter = require("events");
-class IPC extends EventEmitter {
-    constructor() {
+'use strict';
+
+const { EventEmitter } = require('eventemitter3');
+
+/**
+ * Bot IPC class
+ * @class IPC
+ * @extends {EventEmitter}
+ */
+module.exports = class IPC extends EventEmitter {
+    /**
+     * @constructor
+     */
+    constructor () {
         super();
+
         this.events = new Map();
 
-        process.on("message", msg => {
-            let event = this.events.get(msg._eventName);
+        process.on('message', message => {
+            const event = this.events.get(message._eventName);
+
             if (event) {
-                event.fn(msg);
+                event.callback(message);
             }
         });
     }
 
-    register(event, callback) {
-        this.events.set(event, { fn: callback });
+    /**
+     * Registers an event to the events map
+     * @param {string} event The event name
+     * @param {*} callback The callback for the event
+     * @returns {boolean} The saved event
+     */
+    register (event, callback) {
+        this.events.set(event, {
+            callback: callback
+        });
     }
 
-    unregister(name) {
+    /**
+     * Deletes an event from the events map
+     * @param {string} name The event name
+     * @returns {boolean} The deleted event
+     */
+    unregister (name) {
         this.events.delete(name);
     }
 
-    broadcast(name, message = {}) {
+    /**
+     * Sends an action to execute on all shards of the cluster
+     * @param {string} name The action name
+     * @param {Object} message The action to execute
+     * @returns {void}
+     */
+    broadcast (name, message = {}) {
         message._eventName = name;
-        process.send({ name: "broadcast", msg: message });
+
+        process.send({
+            name: 'broadcast',
+            msg: message
+        });
     }
 
-    sendTo(cluster, name, message = {}) {
+    /**
+     * Sends an action to execute on the concerned cluster
+     * @param {number} clusterID The ID of the concerned cluster
+     * @param {string} name The action name
+     * @param {Object} message The action to execute
+     * @returns {void}
+     */
+    sendTo (clusterID, name, message = {}) {
         message._eventName = name;
-        process.send({ name: "send", cluster: cluster, msg: message });
+
+        process.send({
+            name: 'send',
+            cluster: clusterID,
+            msg: message
+        });
     }
 
-    async fetchUser(id) {
-        process.send({ name: "fetchUser", id: id });
-        let self = this;
+    /**
+     * Fetches a user on all bot clusters
+     * @param {string} userID The ID of the Discord user
+     * @returns {Object} The base of the user object
+     */
+    async fetchUser (userID) {
+        process.send({
+            name: 'fetchUser',
+            id: userID
+        });
 
-        return new Promise((resolve, reject) => {
-            const callback = (user) => {
-                self.removeListener(id, callback);
+        return new Promise(resolve => {
+            const callback = user => {
+                this.removeListener(userID, callback);
+
                 resolve(user);
             };
-            self.on(id, callback);
+
+            this.on(userID, callback);
         });
     }
 
-    async fetchGuild(id) {
-        process.send({ name: "fetchGuild", id: id });
-        let self = this;
+    /**
+     * Fetches a guild on all bot clusters
+     * @param {string} guildID The ID of the Discord guild
+     * @returns {Object} The base of the guild object
+     */
+    async fetchGuild (guildID) {
+        process.send({
+            name: 'fetchGuild',
+            id: guildID
+        });
 
-        return new Promise((resolve, reject) => {
-            const callback = (guild) => {
-                self.removeListener(id, callback);
+        return new Promise(resolve => {
+            const callback = guild => {
+                this.removeListener(guildID, callback);
+
                 resolve(guild);
             };
-            self.on(id, callback);
+
+            this.on(guildID, callback);
         });
     }
 
-    async fetchChannel(id) {
-        process.send({ name: "fetchChannel", id: id });
-        let self = this;
+    /**
+     * Fetches a channel on all bot clusters
+     * @param {string} channelID The ID of the Discord channel
+     * @returns {Object} The base of the channel object
+     */
+    async fetchChannel (channelID) {
+        process.send({
+            name: 'fetchChannel',
+            id: channelID
+        });
 
-        return new Promise((resolve, reject) => {
-            const callback = (channel) => {
-                self.removeListener(id, callback);
+        return new Promise(resolve => {
+            const callback = channel => {
+                this.removeListener(channelID, callback);
+
                 resolve(channel);
             };
-            self.on(id, callback);
+
+            this.on(channelID, callback);
         });
     }
-}
-
-module.exports = IPC;
+};

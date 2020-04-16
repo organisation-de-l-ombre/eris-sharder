@@ -1,21 +1,41 @@
-const Eris = require("eris");
-const Base = require("../structures/Base.js");
-const utils = require("util");
+'use strict';
+
+const { Client } = require('eris');
+const colors = {
+    yellow: 0xE6EF0F,
+    green: 0x3ED46C,
+    red: 0xF53837
+};
+const ErisBaseClient = require('../structures/ErisBaseClient.js');
 
 /**
- * 
- * 
+ * Cluster class
  * @class Cluster
  */
-class Cluster {
+module.exports = class Cluster {
 
     /**
      * Creates an instance of Cluster.
-     * @param {any} clusterID 
-     * @memberof Cluster
+     * @constructor
+     * @property {number} shards The total amount of shards
+     * @property {number} maxShards The maximal amount of shards
+     * @property {number} firstShardID The ID of the first shard
+     * @property {number} lastShardID The ID of the last shard
+     * @property {string | null} mainFile The path to the main bot file
+     * @property {number} clusterID The ID of the concerned cluster
+     * @property {number} clusterCount The maximal amount of clusters
+     * @property {number} guilds The total amount of guilds
+     * @property {number} users The total amount of users
+     * @property {number} uptime The global uptime of the bot
+     * @property {number} exclusiveGuilds The total amount of exclusive guilds
+     * @property {number} largeGuilds The total amount of large guilds
+     * @property {number} voiceChannel The total amount of joined voice channels
+     * @property {Array} shardsStats Shards statistics
+     * @property {Object} App Bot application
+     * @property {Client} bot The Eris client
+     * @property {boolean} test
      */
-    constructor() {
-
+    constructor () {
         this.shards = 0;
         this.maxShards = 0;
         this.firstShardID = 0;
@@ -30,51 +50,76 @@ class Cluster {
         this.largeGuilds = 0;
         this.voiceChannels = 0;
         this.shardsStats = [];
-        this.app = null;
+        this.App = null;
         this.bot = null;
         this.test = false;
 
-        console.log = (str) => process.send({ name: "log", msg: str });
-        console.error = (str) => process.send({ name: "error", msg: str });
-        console.warn = (str) => process.send({ name: "warn", msg: str });
-        console.info = (str) => process.send({ name: "info", msg: str });
-        console.debug = (str) => process.send({ name: "debug", msg: str });
+        console.log = message => process.send({
+            name: 'log',
+            msg: message
+        });
+        console.error = message => process.send({
+            name: 'error',
+            msg: message
+        });
+        console.warn = message => process.send({
+            name: 'warn',
+            msg: message
+        });
+        console.info = message => process.send({
+            name: 'info',
+            msg: message
+        });
+        console.debug = message => process.send({
+            name: 'debug',
+            msg: message
+        });
 
     }
 
-    spawn() {
-        process.on('uncaughtException', (err) => {
-            process.send({ name: "error", msg: err.stack });
+    /**
+     * Spawns a cluster
+     * @returns {void}
+     */
+    spawn () {
+        process.on('uncaughtException', error => {
+            process.send({
+                name: 'error',
+                msg: error.stack
+            });
         });
-
         process.on('unhandledRejection', (reason, p) => {
-            process.send({ name: "error", msg: `Unhandled rejection at: Promise  ${p} reason:  ${reason.stack}` });
+            process.send({
+                name: 'error',
+                msg: `Unhandled rejection at: Promise ${p} reason:  ${reason.stack}`
+            });
         });
-
-
-        process.on("message", msg => {
-            if (msg.name) {
-                switch (msg.name) {
-                    case "connect":
-                        this.firstShardID = msg.firstShardID;
-                        this.lastShardID = msg.lastShardID;
-                        this.mainFile = msg.file;
-                        this.clusterID = msg.id;
-                        this.clusterCount = msg.clusterCount;
+        process.on('message', message => {
+            if (message.name) {
+                switch (message.name) {
+                    case 'connect': {
+                        this.firstShardID = message.firstShardID;
+                        this.lastShardID = message.lastShardID;
+                        this.mainFile = message.file;
+                        this.clusterID = message.id;
+                        this.clusterCount = message.clusterCount;
                         this.shards = (this.lastShardID - this.firstShardID) + 1;
-                        this.maxShards = msg.maxShards;
+                        this.maxShards = message.maxShards;
 
-                        if (this.shards < 1) return;
-
-                        if (msg.test) {
+                        if (this.shards < 1) {
+                            return;
+                        }
+                        if (message.test) {
                             this.test = true;
                         }
 
-                        this.connect(msg.firstShardID, msg.lastShardID, this.maxShards, msg.token, "connect", msg.clientOptions);
-                        break;
-                    case "stats":
-                        process.send({
-                            name: "stats", stats: {
+                        return this.connect(message.firstShardID, message.lastShardID, this.maxShards, message.token, 'connect', message.clientOptions);
+                    }
+
+                    case 'stats': {
+                        return process.send({
+                            name: 'stats',
+                            stats: {
                                 guilds: this.guilds,
                                 users: this.users,
                                 uptime: this.uptime,
@@ -86,152 +131,269 @@ class Cluster {
                                 shardsStats: this.shardsStats
                             }
                         });
-                        break;
-                    case "fetchUser":
-                        let id = msg.value;
-                        let user = this.bot.users.get(id);
+                    }
+
+                    case 'fetchUser': {
+                        const userID = message.value;
+                        const user = this.bot.users.get(userID);
+
                         if (user) {
-                            process.send({ name: "fetchReturn", value: user });
+                            return process.send({
+                                name: 'fetchReturn',
+                                value: user
+                            });
                         }
-                        break;
-                    case "fetchChannel":
-                        let id2 = msg.value;
-                        let channel = this.bot.getChannel(id2);
+
+                        return;
+                    }
+
+                    case 'fetchChannel': {
+                        const channelID = message.value;
+                        const channel = this.bot.getChannel(channelID);
+
                         if (channel) {
-                            channel = channel.toJSON();
-                            return process.send({ name: "fetchReturn", value: channel });
+                            return process.send({
+                                name: 'fetchReturn',
+                                value: channel
+                            });
                         }
-                        break;
-                    case "fetchGuild":
-                        let id3 = msg.value;
-                        let guild = this.bot.guilds.get(id3);
+
+                        return;
+                    }
+
+                    case 'fetchGuild': {
+                        const guildID = message.value;
+                        const guild = this.bot.guilds.get(guildID);
+
                         if (guild) {
-                            guild = guild.toJSON();
-                            process.send({ name: "fetchReturn", value: guild });
+                            return process.send({
+                                name: 'fetchReturn',
+                                value: guild
+                            });
                         }
-                        break;
-                    case "fetchReturn":
-                        this.ipc.emit(msg.id, msg.value);
-                        break;
-                    case "restart":
-                        process.exit(1);
-                        break;
+
+                        return;
+                    }
+
+                    case 'fetchReturn': {
+                        return this.ipc.emit(message.id, message.value);
+                    }
+
+                    case 'restart': {
+                        return process.exit(1);
+                    }
                 }
             }
         });
     }
 
     /**
-     * 
-     * 
-     * @param {any} firstShardID 
-     * @param {any} lastShardID 
-     * @param {any} maxShards 
-     * @param {any} token 
-     * @param {any} type 
-     * @memberof Cluster
+     * Connects a cluster
+     * @param {number} firstShardID The ID of the first shard
+     * @param {number} lastShardID The ID of the last shard
+     * @param {number} maxShards The maximal amout of shards
+     * @param {string} token The bot token
+     * @param {*} type Any
+     * @param {Object} clientOptions Eris client options
+     * @returns {void}
      */
-    connect(firstShardID, lastShardID, maxShards, token, type, clientOptions) {
-        process.send({ name: "log", msg: `Connecting with ${this.shards} shard(s)` });
+    connect (firstShardID, lastShardID, maxShards, token, type, clientOptions) {
+        process.send({
+            name: 'warn',
+            msg: `Trying to connect ${this.shards} shard(s)...`
+        });
+        process.send({
+            name: 'shard',
+            embed: {
+                color: colors.yellow,
+                title: 'Cluster manager',
+                description: `Trying to connect ${this.shards} shard(s) on the process with PID ${process.pid}`
+            }
+        });
 
-        let options = { autoreconnect: true, firstShardID: firstShardID, lastShardID: lastShardID, maxShards: maxShards };
-        let optionss = Object.keys(options);
-        optionss.forEach(key => {
+        const options = { autoreconnect: true, firstShardID: firstShardID, lastShardID: lastShardID, maxShards: maxShards };
+
+        Object.keys(options).forEach(key => {
             delete clientOptions[key];
         });
-
         Object.assign(options, clientOptions);
-        const bot = new Eris(token, options);
-        this.bot = bot;
-        bot.on("connect", id => {
-            process.send({ name: "log", msg: `Shard ${id} established connection!` });
+
+        this.bot = new Client(token, options);
+
+        this.bot.on('connect', shardID => {
+            process.send({
+                name: 'info',
+                msg: `Shard ${shardID} successfully connected.`
+            });
+            process.send({
+                name: 'shard',
+                embed: {
+                    color: colors.green,
+                    title: 'Shard',
+                    description: `Shard ${shardID} successfully connected.`
+                }
+            });
         });
-
-        bot.on("shardDisconnect", (err, id) => {
-            process.send({ name: "log", msg: `Shard ${id} disconnected!` });
-            let embed = {
-                title: "Shard Status Update",
-                description: `Shard ${id} disconnected!`
-            }
-            process.send({ name: "shard", embed: embed });
+        this.bot.on('disconnect', () => {
+            process.send({
+                name: 'error',
+                msg: `All shards have been disconnected.`
+            });
+            process.send({
+                name: 'shard',
+                embed: {
+                    color: colors.red,
+                    title: 'Shard',
+                    description: `All shards have been disconnected.`
+                }
+            });
         });
-
-        bot.on("shardReady", id => {
-            process.send({ name: "log", msg: `Shard ${id} is ready!` });
-            let embed = {
-                title: "Shard Status Update",
-                description: `Shard ${id} is ready!`
-            }
-            process.send({ name: "shard", embed: embed });
+        this.bot.on('shardDisconnect', (error, shardID) => {
+            process.send({
+                name: 'error',
+                msg: `Shard ${shardID} has been disconnected with the following error: ${error.stack}`
+            });
+            process.send({
+                name: 'shard',
+                embed: {
+                    color: colors.red,
+                    title: 'Shard',
+                    description: `Shard ${shardID} has been disconnected.`,
+                    fields: [{
+                        name: 'Error',
+                        value: `\`\`\`JS\n${error}\n\`\`\``
+                    }]
+                }
+            });
         });
-
-        bot.on("shardResume", id => {
-            process.send({ name: "log", msg: `Shard ${id} has resumed!` });
-            let embed = {
-                title: "Shard Status Update",
-                description: `Shard ${id} resumed!`
-            }
-            process.send({ name: "shard", embed: embed });
+        this.bot.on('shardReady', shardID => {
+            process.send({
+                name: 'info',
+                msg: `Shard ${shardID} is ready.`
+            });
+            process.send({
+                name: 'shard',
+                embed: {
+                    color: colors.green,
+                    title: 'Shard',
+                    description: `Shard ${shardID} is ready.`
+                }
+            });
         });
-
-        bot.on("warn", (message, id) => {
-            process.send({ name: "warn", msg: `Shard ${id} | ${message}` });
+        this.bot.on('shardResume', shardID => {
+            process.send({
+                name: 'log',
+                msg: `Shard ${shardID} has been resumed.`
+            });
+            process.send({
+                name: 'shard',
+                embed: {
+                    color: colors.green,
+                    title: 'Shard',
+                    description: `Shard ${shardID} has been resumed.`
+                }
+            });
         });
-
-        bot.on("error", (error, id) => {
-            process.send({ name: "error", msg: `Shard ${id} | ${error.stack}` });
+        this.bot.on('warn', (message, shardID) => {
+            process.send({
+                name: 'warn',
+                msg: `Shard ${shardID} has received a warning: ${message}`
+            });
+            process.send({
+                name: 'shard',
+                embed: {
+                    color: colors.yellow,
+                    title: 'Shard',
+                    description: `Shard ${shardID} has received a warning.`,
+                    fields: [{
+                        name: 'Warning',
+                        value: `\`\`\`JS\n${message}\n\`\`\``
+                    }]
+                }
+            });
         });
-
-        bot.once("ready", id => {
-            this.loadCode(bot);
-
-            this.startStats(bot);
+        this.bot.on('error', (error, shardID) => {
+            process.send({
+                name: 'error',
+                msg: `Shard ${shardID} has encountered an error: ${error.stack}`
+            });
+            process.send({
+                name: 'shard',
+                embed: {
+                    color: colors.red,
+                    title: 'Shard',
+                    description: `Shard ${shardID} has encountered an error.`,
+                    fields: [{
+                        name: 'Error',
+                        value: `\`\`\`JS\n${error}\n\`\`\``
+                    }]
+                }
+            });
         });
-
-        bot.on("ready", id => {
-            process.send({ name: "log", msg: `Shards ${this.firstShardID} - ${this.lastShardID} are ready!` });
-            let embed = {
-                title: `Cluster ${this.clusterID} is ready!`,
-                description: `Shards ${this.firstShardID} - ${this.lastShardID}`
-            }
-            process.send({ name: "cluster", embed: embed });
-
-            process.send({ name: "shardsStarted" });
+        this.bot.once('ready', () => {
+            this.loadCode();
+            this.startStats();
+        });
+        this.bot.on('ready', () => {
+            process.send({
+                name: 'info',
+                msg: `Shards including ID ${this.firstShardID} to ${this.lastShardID} are ready.`
+            });
+            process.send({
+                name: 'cluster',
+                embed: {
+                    color: colors.green,
+                    title: 'Cluster manager',
+                    description: `Shards including ID ${this.firstShardID} to ${this.lastShardID} are ready.`
+                }
+            });
+            process.send({
+                name: 'shardsStarted'
+            });
         });
 
         if (!this.test) {
-            bot.connect();
+            this.bot.connect();
         } else {
-            process.send({ name: "shardsStarted" });
-            this.loadCode(bot);
+            process.send({
+                name: 'shardsStarted'
+            });
+
+            this.loadCode();
         }
     }
 
-    loadCode(bot) {
-        let rootPath = process.cwd();
-        rootPath = rootPath.replace(`\\`, "/");
+    /**
+     * Loads the main file of the bot
+     * @returns {void}
+     */
+    loadCode () {
+        const rootPath = process.cwd().replace(`\\`, '/');
+        const path = `${rootPath}${this.mainFile}`;
+        const App = require(path);
 
-
-        let path = `${rootPath}${this.mainFile}`;
-        let app = require(path);
-        if (app.prototype instanceof Base) {
-            this.app = new app({ bot: bot, clusterID: this.clusterID });
-            this.app.launch();
-            this.ipc = this.app.ipc;
+        if (App.prototype instanceof ErisBaseClient) {
+            this.App = new App({
+                bot: this.bot,
+                clusterID: this.clusterID
+            });
+            this.App.launch();
+            this.ipc = this.App.ipc;
         } else {
-            console.error("Your code has not been loaded! This is due to it not extending the Base class. Please extend the Base class!");
+            throw new Error('Your code has not been loaded! This is due to it not extending the ErisBaseClient class. Please extend the ErisBaseClient class!');
         }
     }
 
-    startStats(bot) {
+    startStats () {
         setInterval(() => {
-            this.guilds = bot.guilds.size;
-            this.users = bot.users.size;
-            this.uptime = bot.uptime;
-            this.voiceChannels = bot.voiceConnections.size;
-            this.largeGuilds = bot.guilds.filter(g => g.large).length;
-            this.exclusiveGuilds = bot.guilds.filter(g => g.members.filter(m => m.bot).length === 1).length;
+            this.guilds = this.bot.guilds.size;
+            this.users = this.bot.users.size;
+            this.uptime = this.bot.uptime;
+            this.voiceChannels = this.bot.voiceConnections.size;
+            this.largeGuilds = this.bot.guilds.filter(guild => guild.large).length;
+            this.exclusiveGuilds = this.bot.guilds.filter(guild => guild.members.filter(member => member.bot).length === 1).length;
             this.shardsStats = [];
+            
             this.bot.shards.forEach(shard => {
                 this.shardsStats.push({
                     id: shard.id,
@@ -242,7 +404,4 @@ class Cluster {
             });
         }, 1000 * 5);
     }
-}
-
-
-module.exports = Cluster;
+};

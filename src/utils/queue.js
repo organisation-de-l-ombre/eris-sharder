@@ -1,34 +1,47 @@
-let EventEmitter = require("events");
+'use strict';
+
+const { EventEmitter } = require('eventemitter3');
+
 /**
- * 
- * 
+ * Queue class
  * @class Queue
  * @extends {EventEmitter}
  */
-class Queue extends EventEmitter {
+module.exports = class Queue extends EventEmitter {
     /**
-     * Creates an instance of Queue.
-     * @memberof Queue
+     * @constructor
+     * @property {Array} queue
      */
-    constructor() {
+    constructor () {
         super();
         this.queue = [];
     }
 
-    executeQueue() {
-        let item = this.queue[0];
+    /**
+     * Executes the queue system
+     * @returns {void}
+     */
+    executeQueue () {
+        const item = this.queue[0];
 
-        if (!item) return;
-        this.emit("execute", item);
+        if (!item) {
+            return;
+        }
+
+        /**
+         * Emitted when queue system is executed
+         * @event Queue#execute
+         * @param {*} item Queue item
+         */
+        this.emit('execute', item);
     }
 
     /**
-     * 
-     * 
-     * @param {any} item 
-     * @memberof Queue
+     * Pushes an item into the queue
+     * @param {*} item Queue item
+     * @returns {void}
      */
-    queueItem(item) {
+    queueItem (item) {
         if (this.queue.length === 0) {
             this.queue.push(item);
             this.executeQueue();
@@ -36,6 +49,4 @@ class Queue extends EventEmitter {
             this.queue.push(item);
         }
     }
-}
-
-module.exports = Queue;
+};

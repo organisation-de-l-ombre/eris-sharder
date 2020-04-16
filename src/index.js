@@ -1,6 +1,6 @@
-const Sharder = require('./sharding/clustermanager.js');
-const Base = require("./structures/Base.js");
+'use strict';
+
 module.exports = {
-    Master: Sharder,
-    Base: Base
+    ClusterManager: require('./sharding/clustermanager'),
+    ErisBaseClient: require('./structures/ErisBaseClient')
 };
